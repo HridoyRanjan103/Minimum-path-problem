@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Hamiltonian Paths · Domain Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #080d1a;
+      --surface:  #0e1625;
+      --panel:    #131d2e;
+      --border:   #1e2d42;
+      --accent:   #3b82f6;
+      --accent2:  #22d3ee;
+      --success:  #10b981;
+      --warn:     #f59e0b;
+      --danger:   #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --glow:     rgba(59,130,246,0.18);
+    }
+    *, *::before, *::after { box-sizing: border-box; user-select: none; }
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      color: var(--text);
+      margin: 0;
+      padding: 28px 16px 40px;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 70% 0%, rgba(59,130,246,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 20% 90%, rgba(34,211,238,0.05) 0%, transparent 60%);
+    }
+
+    /* ── CONTAINER ── */
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #1e40af, #0891b2);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+    }
+    .header-text { flex: 1; }
+    .header-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin: 0 0 4px;
+      background: linear-gradient(120deg, #e2e8f0 30%, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .header-sub strong { color: #94a3b8; }
+    .k-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      background: rgba(59,130,246,0.12);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #93c5fd;
+      padding: 5px 14px;
+      border-radius: 999px;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .ctrl-label {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 8px;
+      width: 52px;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="number"]:focus { border-color: var(--accent); }
+    .sep { color: var(--border); font-size: 1.1rem; }
+
+    /* ── BUTTONS ── */
+    button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--panel); border-color: #2d4060; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      font-weight: 600;
+      padding: 8px 22px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      box-shadow: 0 0 18px rgba(59,130,246,0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; box-shadow: 0 0 24px rgba(59,130,246,0.45); }
+    button.primary:disabled {
+      background: #1e3a5f;
+      border-color: #1e3a5f;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* solve button spinner */
+    .btn-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    button.primary.loading .btn-spinner { display: block; }
+    button.primary.loading .btn-icon { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MAIN LAYOUT ── */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+    }
+    @media (max-width: 760px) {
+      .main-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── CANVAS ── */
+    .canvas-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .canvas-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.06), transparent);
+      pointer-events: none;
+    }
+    .canvas-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .canvas-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    canvas {
+      border-radius: 14px;
+      display: block;
+      width: 100%;
+      aspect-ratio: 1/1;
+      cursor: crosshair;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px var(--border);
+    }
+
+    /* ── SIDE PANEL ── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── STAT CARDS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 12px 12px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .stat-card.highlight { border-color: rgba(59,130,246,0.4); }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .stat-card.highlight::after { opacity: 1; }
+    .stat-icon { font-size: 0.95rem; margin-bottom: 4px; }
+    .stat-label {
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.9rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1;
+      transition: color 0.3s;
+    }
+
+    /* ── MESSAGE AREA ── */
+    .message-area {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      line-height: 1.6;
+      min-height: 64px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .message-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: 5px;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .message-dot.success { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .message-dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+    .message-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    .message-dot.pulse {
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+    .message-text strong { color: var(--text); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-bar-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 999px;
+      transition: width 0.3s ease;
+      width: 0%;
+      box-shadow: 0 0 8px rgba(59,130,246,0.5);
+    }
+
+    /* ── LEGEND ── */
+    .legend-section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      flex: 1;
+    }
+    .legend-title {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .legend-scroll {
+      max-height: 230px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .legend-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.68rem;
+      animation: slide-in 0.3s ease backwards;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .color-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .legend-name { font-weight: 500; color: var(--text); }
+    .legend-info { color: var(--muted); flex: 1; }
+    .legend-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .legend-badge.full    { background: rgba(16,185,129,0.15); color: #34d399; }
+    .legend-badge.partial { background: rgba(245,158,11,0.15);  color: #fbbf24; }
+    .legend-badge.none    { background: rgba(239,68,68,0.15);   color: #f87171; }
+
+    /* ── FOOTER ── */
+    footer {
+      font-size: 0.65rem;
+      text-align: center;
+      color: var(--muted);
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      line-height: 1.7;
+    }
+
+    /* ── CANVAS ANIMATION OVERLAY ── */
+    .solving-overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(8,13,26,0.7);
+      backdrop-filter: blur(3px);
+      z-index: 10;
+    }
+    .solving-overlay.visible { display: flex; }
+    .solving-ring {
+      width: 52px; height: 52px;
+      border: 3px solid rgba(59,130,246,0.2);
+      border-top-color: var(--accent);
+      border-right-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .solving-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: #93c5fd;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-icon">🧩</div>
+    <div class="header-text">
+      <h1 class="header-title">Connected Domains · Hamiltonian Explorer</h1>
+      <div class="header-sub">
+        <strong>Step 1:</strong> Partition each component into subdomains with |B−W| = 1 or 0.&nbsp;
+        <strong>Step 2:</strong> Exhaustive start + iterative DFS (Warnsdorff) per subdomain.&nbsp;
+        🟢 <em>green start</em> → 🔴 <em>red end</em> · paths never cross domain boundaries.
+      </div>
+    </div>
+    <div class="k-badge" id="kBadge">k = ?</div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Grid size</span>
+      <input type="number" id="rowsInp" value="7" min="3" max="12">
+      <span class="sep">×</span>
+      <input type="number" id="colsInp" value="7" min="3" max="12">
+      <button id="resizeBtn">Resize</button>
+    </div>
+    <div class="ctrl-group">
+      <button id="clearBtn">🗑 Clear</button>
+      <button id="randomBtn">🎲 Random 15%</button>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Fixed start</span>
+      <span class="ctrl-label">r</span>
+      <input type="number" id="initRowInp" value="1" min="1" max="12">
+      <span class="ctrl-label">c</span>
+      <input type="number" id="initColInp" value="1" min="1" max="12">
+      <button id="setInitBtn">Set</button>
+      <button id="clearInitBtn">Clear</button>
+    </div>
+    <div style="margin-left:auto;">
+      <button id="solveBtn" class="primary">
+        <span class="btn-icon">▶</span>
+        <div class="btn-spinner"></div>
+        Solve Paths
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+
+    <!-- CANVAS COLUMN -->
+    <div class="canvas-panel">
+      <div class="canvas-label">Board · click cell to toggle</div>
+      <canvas id="boardCanvas" width="500" height="500"></canvas>
+      <div class="solving-overlay" id="solvingOverlay">
+        <div class="solving-ring"></div>
+        <div class="solving-text" id="solvingText">COMPUTING…</div>
+      </div>
+    </div>
+
+    <!-- SIDE COLUMN -->
+    <div class="side-panel">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card" id="card-comp">
+          <div class="stat-icon">🧩</div>
+          <div class="stat-label">Components</div>
+          <div class="stat-value" id="compCount">—</div>
+        </div>
+        <div class="stat-card" id="card-lb">
+          <div class="stat-icon">⚖️</div>
+          <div class="stat-label">Σ max(1,|B−W|)</div>
+          <div class="stat-value" id="lowerBound">—</div>
+        </div>
+        <div class="stat-card" id="card-dom">
+          <div class="stat-icon">📦</div>
+          <div class="stat-label">Domains</div>
+          <div class="stat-value" id="domainCount">—</div>
+        </div>
+        <div class="stat-card" id="card-gap">
+          <div class="stat-icon">✅</div>
+          <div class="stat-label">Gap</div>
+          <div class="stat-value" id="gapValue">—</div>
+        </div>
+      </div>
+
+      <!-- PROGRESS -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-label">
+          <span>Solving domains</span>
+          <span id="progressText">0 / 0</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <!-- MESSAGE -->
+      <div class="message-area" id="messageArea">
+        <div class="message-dot" id="messageDot"></div>
+        <div class="message-text" id="messageText">
+          <strong>Ready</strong> — remove cells (click) to create imbalance, then hit <strong>Solve</strong>.
+        </div>
+      </div>
+
+      <!-- LEGEND -->
+      <div class="legend-section">
+        <div class="legend-title">Domain Legend</div>
+        <div class="legend-scroll" id="legendArea">
+          <span style="color:var(--muted); font-size:0.7rem;">No domains yet — click Solve.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    ✦ Optimized iterative DFS + Warnsdorff heuristic · Paths drawn with dark outline for visual distinction ·
+    If no Hamiltonian path exists → longest partial path shown dashed
+  </footer>
+</div>
+
+<script>
+(function(){
+  // ── DOM ──
+  const canvas      = document.getElementById('boardCanvas');
+  const ctx         = canvas.getContext('2d');
+  const rowsInp     = document.getElementById('rowsInp');
+  const colsInp     = document.getElementById('colsInp');
+  const resizeBtn   = document.getElementById('resizeBtn');
+  const clearBtn    = document.getElementById('clearBtn');
+  const randomBtn   = document.getElementById('randomBtn');
+  const solveBtn    = document.getElementById('solveBtn');
+  const initRowInp  = document.getElementById('initRowInp');
+  const initColInp  = document.getElementById('initColInp');
+  const setInitBtn  = document.getElementById('setInitBtn');
+  const clearInitBtn= document.getElementById('clearInitBtn');
+  const compCountSpan   = document.getElementById('compCount');
+  const lowerBoundSpan  = document.getElementById('lowerBound');
+  const domainCountSpan = document.getElementById('domainCount');
+  const gapSpan         = document.getElementById('gapValue');
+  const kBadge          = document.getElementById('kBadge');
+  const messageDot      = document.getElementById('messageDot');
+  const messageText     = document.getElementById('messageText');
+  const legendArea      = document.getElementById('legendArea');
+  const solvingOverlay  = document.getElementById('solvingOverlay');
+  const solvingText     = document.getElementById('solvingText');
+  const progressWrap    = document.getElementById('progressWrap');
+  const progressFill    = document.getElementById('progressFill');
+  const progressLabel   = document.getElementById('progressText');
+
+  // ── STATE ──
+  let rows = 7, cols = 7;
+  let board = [];
+  let removedSet = new Set();
+  let currentDomains = [];
+  let initialCell = null;
+  let animationId = null;
+
+  // ── MESSAGE HELPER ──
+  function setMessage(html, type='info') {
+    messageText.innerHTML = html;
+    messageDot.className = 'message-dot';
+    if (type === 'success') messageDot.classList.add('success');
+    else if (type === 'warn') messageDot.classList.add('warn');
+    else if (type === 'error') messageDot.classList.add('error');
+    else if (type === 'loading') messageDot.classList.add('pulse');
+  }
+
+  // ── STAT COUNTER ANIMATION ──
+  function animateStat(el, target) {
+    const card = el.closest('.stat-card');
+    card && card.classList.add('highlight');
+    const start = 0, dur = 600, t0 = performance.now();
+    function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target);
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = target;
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ── BOARD HELPERS ──
+  function buildBoardFromRemoved() {
+    board = Array(rows).fill().map(() => Array(cols).fill(0));
+    for (let i = 0; i < rows; i++)
+      for (let j = 0; j < cols; j++)
+        board[i][j] = removedSet.has(`${i},${j}`) ? 0 : ((i+j)%2===0 ? 1 : -1);
+  }
+  function domainSum(cells) {
+    let s=0; for (const [r,c] of cells) s+=board[r][c]; return s;
+  }
+  function isConnectedCells(cells) {
+    if (cells.length<=1) return true;
+    const set=new Set(cells.map(([r,c])=>`${r},${c}`));
+    const queue=[cells[0]], seen=new Set([`${cells[0][0]},${cells[0][1]}`]);
+    const dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+    for (let head=0;head<queue.length;head++) {
+      const [r,c]=queue[head];
+      for (const [dr,dc] of dirs) {
+        const key=`${r+dr},${c+dc}`;
+        if (set.has(key)&&!seen.has(key)){seen.add(key);queue.push([r+dr,c+dc]);}
+      }
+    }
+    return seen.size===cells.length;
+  }
+  function validateDomains(domains, componentCells, requiredSign) {
+    const expected=new Set(componentCells.map(([r,c])=>`${r},${c}`));
+    const seen=new Set();
+    for (const cells of domains) {
+      if (!cells.length||!isConnectedCells(cells)) return false;
+      if (requiredSign!==0&&domainSum(cells)!==requiredSign) return false;
+      if (requiredSign===0&&Math.abs(domainSum(cells))>1) return false;
+      for (const [r,c] of cells) {
+        const key=`${r},${c}`;
+        if (!expected.has(key)||seen.has(key)) return false;
+        seen.add(key);
+      }
+    }
+    return seen.size===expected.size;
+  }
+
+  // ── COMPONENTS ──
+  function getComponents() {
+    const visited=Array(rows).fill().map(()=>Array(cols).fill(false));
+    const comps=[], dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+    for (let i=0;i<rows;i++) for (let j=0;j<cols;j++) {
+      if (board[i][j]!==0&&!visited[i][j]) {
+        const queue=[[i,j]], cells=[];
+        visited[i][j]=true; let black=0,white=0;
+        while (queue.length) {
+          const [r,c]=queue.shift(); cells.push([r,c]);
+          if (board[r][c]===1) black++; else if (board[r][c]===-1) white++;
+          for (const [dr,dc] of dirs) {
+            const nr=r+dr,nc=c+dc;
+            if (nr>=0&&nr<rows&&nc>=0&&nc<cols&&board[nr][nc]!==0&&!visited[nr][nc]) {
+              visited[nr][nc]=true; queue.push([nr,nc]);
+            }
+          }
+        }
+        comps.push({id:comps.length,cells,black,white,imbalance:black-white});
+      }
+    }
+    return comps;
+  }
+
+  // ── TREE-CUTTING ──
+  function treeCuttingDomains(componentCells) {
+    const n=componentCells.length, idxMap=new Map();
+    for (let i=0;i<n;i++) idxMap.set(`${componentCells[i][0]},${componentCells[i][1]}`,i);
+    const adj=Array(n).fill().map(()=>[]), dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+    for (let i=0;i<n;i++) {
+      const [r,c]=componentCells[i];
+      for (const [dr,dc] of dirs) {
+        const key=`${r+dr},${c+dc}`;
+        if (idxMap.has(key)) adj[i].push(idxMap.get(key));
+      }
+    }
+    const parent=Array(n).fill(-1), children=Array(n).fill().map(()=>[]);
+    const visitedDFS=Array(n).fill(false), stack=[[0,-1]];
+    visitedDFS[0]=true;
+    while (stack.length) {
+      const [u,p]=stack.pop(); parent[u]=p;
+      for (const v of adj[u]) if (v!==p&&!visitedDFS[v]){visitedDFS[v]=true;children[u].push(v);stack.push([v,u]);}
+    }
+    const postorder=[], st=[[0,false]];
+    while (st.length) {
+      const [u,visited]=st.pop();
+      if (visited) postorder.push(u);
+      else {
+        st.push([u,true]);
+        for (let i=children[u].length-1;i>=0;i--) st.push([children[u][i],false]);
+      }
+    }
+    const rawValue=componentCells.map(([r,c])=>board[r][c]);
+    const totalRaw=rawValue.reduce((a,b)=>a+b,0);
+    const requiredSign=totalRaw>0?1:-1;
+    let f=Array(n).fill(0);
+    for (const u of postorder) { f[u]=rawValue[u]; for (const v of children[u]) f[u]+=f[v]; }
+    const currentAssign=Array(n).fill(false); let currentF=[...f];
+    const cutDomains=[];
+    function findNodeWithF(val) {
+      for (let i=postorder.length-1;i>=0;i--) {
+        const u=postorder[i];
+        if (u!==0&&!currentAssign[u]&&currentF[u]===val) return u;
+      }
+      return -1;
+    }
+    for (let iter=0;iter<Math.abs(totalRaw)-1;iter++) {
+      const node=findNodeWithF(requiredSign);
+      if (node===-1) break;
+      const queue=[node], subNodes=[], visitedSub=new Set([node]);
+      for (let head=0;head<queue.length;head++) {
+        const u=queue[head]; subNodes.push(u);
+        for (const v of children[u]) if (!currentAssign[v]&&!visitedSub.has(v)){visitedSub.add(v);queue.push(v);}
+      }
+      for (const u of subNodes) currentAssign[u]=true;
+      cutDomains.push(subNodes);
+      let a=parent[node]; while(a!==-1){currentF[a]-=requiredSign;a=parent[a];}
+    }
+    const remaining=[];
+    for (let i=0;i<n;i++) if (!currentAssign[i]) remaining.push(i);
+    if (remaining.length) cutDomains.push(remaining);
+    return cutDomains.map(indices=>indices.map(idx=>componentCells[idx]));
+  }
+
+  function computeAllDomains() {
+    const comps=getComponents();
+    let totalLower=0;
+    for (const c of comps) totalLower+=Math.max(1,Math.abs(c.imbalance));
+    lowerBoundSpan.textContent=totalLower; compCountSpan.textContent=comps.length;
+    const allDomains=[];
+    for (const comp of comps) {
+      const absImb=Math.abs(comp.imbalance);
+      if (absImb===0){allDomains.push({cells:comp.cells,sum:0});continue;}
+      const sign=comp.imbalance>0?1:-1;
+      const domainsCells=treeCuttingDomains(comp.cells);
+      const valid=validateDomains(domainsCells,comp.cells,sign);
+      if (!valid){allDomains.push({cells:comp.cells,sum:comp.imbalance,warning:"partition failed"});continue;}
+      for (const domCells of domainsCells) allDomains.push({cells:domCells,sum:domainSum(domCells)});
+    }
+    return allDomains.map((d,idx)=>({...d,id:idx,path:null,isComplete:false}));
+  }
+
+  // ── PATH SOLVER ──
+  function buildAdjacencyForDomain(cells) {
+    const n=cells.length, idxMap=new Array(rows*cols).fill(-1), cellSet=new Set();
+    for (let i=0;i<n;i++){const [r,c]=cells[i];idxMap[r*cols+c]=i;cellSet.add(r*cols+c);}
+    const adj=Array(n).fill().map(()=>[]), dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+    for (let i=0;i<n;i++){
+      const [r,c]=cells[i];
+      for (const [dr,dc] of dirs){
+        const flat=(r+dr)*cols+(c+dc);
+        if (r+dr>=0&&r+dr<rows&&c+dc>=0&&c+dc<cols&&cellSet.has(flat)) adj[i].push(idxMap[flat]);
+      }
+    }
+    return {adj,n};
+  }
+  function getOrderedNeighbors(current,visited,adj) {
+    const candidates=[];
+    for (const v of adj[current]) {
+      if (!visited[v]){let f=0;for (const w of adj[v]) if (!visited[w]) f++;candidates.push({node:v,future:f});}
+    }
+    candidates.sort((a,b)=>a.future-b.future);
+    return candidates.map(c=>c.node);
+  }
+  function endpointCanReachAllRemaining(current,visited,adj,remaining) {
+    if (remaining===0) return true;
+    const stack=[],seen=new Uint8Array(adj.length);
+    for (const v of adj[current]) if (!visited[v]){seen[v]=1;stack.push(v);}
+    let reached=0;
+    while (stack.length){const u=stack.pop();reached++;for (const v of adj[u]) if (!visited[v]&&!seen[v]){seen[v]=1;stack.push(v);}}
+    return reached===remaining;
+  }
+  function greedyPathFromStart(start,adj,randomize=false) {
+    const n=adj.length, visited=new Uint8Array(n), path=[start]; visited[start]=1;
+    while (path.length<n){
+      const u=path[path.length-1], candidates=[];
+      for (const v of adj[u]) {
+        if (visited[v]) continue; visited[v]=1;
+        if (endpointCanReachAllRemaining(v,visited,adj,n-path.length-1)){
+          let f=0; for (const w of adj[v]) if (!visited[w]) f++;
+          candidates.push({node:v,future:f,degree:adj[v].length});
+        }
+        visited[v]=0;
+      }
+      if (!candidates.length) break;
+      candidates.sort((a,b)=>(a.future-b.future)||(a.degree-b.degree));
+      const pick=randomize?Math.min(candidates.length,1+Math.floor(Math.random()*3)):1;
+      const next=candidates[Math.floor(Math.random()*pick)].node;
+      visited[next]=1; path.push(next);
+    }
+    return path;
+  }
+  function findBestPathForDomain(cells,forcedStartCell=null) {
+    const n=cells.length;
+    if (n===0) return {path:null,isComplete:false,coverage:0};
+    if (n===1) return {path:[cells[0]],isComplete:true,coverage:1};
+    const {adj}=buildAdjacencyForDomain(cells);
+    let forcedStartIdx=-1;
+    if (forcedStartCell) forcedStartIdx=cells.findIndex(([r,c])=>r===forcedStartCell[0]&&c===forcedStartCell[1]);
+    const degreeOne=[]; for (let i=0;i<n;i++) if (adj[i].length<=1) degreeOne.push(i);
+    const allStarts=[...Array(n).keys()].sort((a,b)=>adj[a].length-adj[b].length);
+    const startOrder=forcedStartIdx>=0?[forcedStartIdx]:[...new Set([...degreeOne,...allStarts])];
+    let globalBestPath=null, globalBestLen=0, foundFull=false;
+    const greedyStarts=forcedStartIdx>=0?[forcedStartIdx]:[...new Set([...startOrder,...allStarts])];
+    for (const start of greedyStarts) {
+      const p=greedyPathFromStart(start,adj,false);
+      if (p.length>globalBestLen){globalBestLen=p.length;globalBestPath=p.map(idx=>cells[idx]);}
+      if (p.length===n) return {path:globalBestPath,isComplete:true,coverage:n};
+    }
+    const randomTries=n>46?220:60;
+    for (let t=0;t<randomTries;t++) {
+      const start=greedyStarts[t%greedyStarts.length];
+      const p=greedyPathFromStart(start,adj,true);
+      if (p.length>globalBestLen){globalBestLen=p.length;globalBestPath=p.map(idx=>cells[idx]);}
+      if (p.length===n) return {path:globalBestPath,isComplete:true,coverage:n};
+    }
+    const dfsDeadline=performance.now()+(n>46?4500:1800);
+    let dfsSteps=0, timedOut=false;
+    for (const start of startOrder) {
+      if (foundFull||timedOut) break;
+      const visited=new Uint8Array(n), pathStack=[], dfsStack=[];
+      visited[start]=1; pathStack.push(start);
+      let bestLocalPath=null, bestLocalLen=0;
+      dfsStack.push({node:start,neighbors:getOrderedNeighbors(start,visited,adj),nextIdx:0});
+      while (dfsStack.length>0) {
+        if ((++dfsSteps&2047)===0&&performance.now()>dfsDeadline){timedOut=true;break;}
+        const state=dfsStack[dfsStack.length-1];
+        if (pathStack.length===n){globalBestPath=pathStack.map(idx=>cells[idx]);globalBestLen=n;foundFull=true;break;}
+        if (pathStack.length>bestLocalLen){bestLocalLen=pathStack.length;bestLocalPath=pathStack.slice();}
+        if (state.nextIdx<state.neighbors.length) {
+          const v=state.neighbors[state.nextIdx++];
+          if (!visited[v]){visited[v]=1;pathStack.push(v);dfsStack.push({node:v,neighbors:getOrderedNeighbors(v,visited,adj),nextIdx:0});}
+        } else {
+          dfsStack.pop(); if (pathStack.length>0){const last=pathStack.pop();visited[last]=0;}
+        }
+      }
+      if (bestLocalLen>globalBestLen&&!foundFull){
+        globalBestLen=bestLocalLen;
+        if (bestLocalPath) globalBestPath=bestLocalPath.map(idx=>cells[idx]);
+      }
+    }
+    if (foundFull) return {path:globalBestPath,isComplete:true,coverage:n};
+    else if (globalBestPath) return {path:globalBestPath,isComplete:false,coverage:globalBestLen};
+    return {path:null,isComplete:false,coverage:0};
+  }
+  async function computeAllPathsForDomains(domains,forcedCell=null) {
+    const updated=[]; let fullSuccess=0, partialCount=0;
+    for (let i=0;i<domains.length;i++) {
+      const dom=domains[i];
+      if (dom.warning){updated.push({...dom,path:null,isComplete:false,coverage:0});continue;}
+      const useForced=forcedCell&&dom.cells.some(([r,c])=>r===forcedCell[0]&&c===forcedCell[1]);
+      const {path,isComplete,coverage}=findBestPathForDomain(dom.cells,useForced?forcedCell:null);
+      updated.push({...dom,path,isComplete,coverage,forcedStart:!!useForced});
+      if (isComplete) fullSuccess++; else if (path) partialCount++;
+      // update progress bar
+      progressFill.style.width=`${Math.round(((i+1)/domains.length)*100)}%`;
+      progressLabel.textContent=`${i+1} / ${domains.length}`;
+      if (i%3===0) await new Promise(r=>setTimeout(r,0));
+    }
+    return {domains:updated,fullSuccess,partialCount};
+  }
+
+  // ── DRAWING ──
+  const domainColors=[
+    "#FF6B6B","#4D96FF","#6BCB77","#FFD93D","#C084FC","#F97316","#2DD4BF",
+    "#F43F5E","#8B5CF6","#10B981","#FB923C","#A78BFA","#F472B6","#34D399",
+    "#FBBF24","#60A5FA","#F87171","#A3E635","#E879F9","#2DD4BF"
+  ];
+
+  function drawStaticBoard(domains) {
+    const w=canvas.clientWidth, h=canvas.clientHeight;
+    canvas.width=w; canvas.height=h;
+    const cellW=w/cols, cellH=h/rows;
+    ctx.clearRect(0,0,w,h);
+    // base cells
+    for (let i=0;i<rows;i++) for (let j=0;j<cols;j++) {
+      const x=j*cellW, y=i*cellH;
+      if (board[i][j]===0) {
+        ctx.fillStyle='#1a2235'; ctx.fillRect(x,y,cellW,cellH);
+        ctx.fillStyle='#4a5568'; ctx.font=`${Math.min(cellW,cellH)*0.4}px monospace`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('✕',x+cellW/2,y+cellH/2);
+      } else {
+        ctx.fillStyle=(board[i][j]===1)?'#1e3a5f':'#1a2e4a';
+        ctx.fillRect(x,y,cellW,cellH);
+        ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=0.5;
+        ctx.strokeRect(x,y,cellW,cellH);
+      }
+    }
+    // domain overlays
+    for (let idx=0;idx<domains.length;idx++) {
+      const dom=domains[idx], col=domainColors[idx%domainColors.length];
+      ctx.fillStyle=col+'40';
+      for (const [r,c] of dom.cells) ctx.fillRect(c*cellW,r*cellH,cellW,cellH);
+      // domain border highlight
+      ctx.strokeStyle=col+'90'; ctx.lineWidth=1.5;
+      for (const [r,c] of dom.cells) ctx.strokeRect(c*cellW+0.75,r*cellH+0.75,cellW-1.5,cellH-1.5);
+      // label
+      let sumR=0,sumC=0;
+      for (const [r,c] of dom.cells){sumR+=r;sumC+=c;}
+      ctx.fillStyle='rgba(255,255,255,0.7)';
+      ctx.font=`bold ${Math.min(cellW,cellH)*0.28}px 'DM Mono',monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(`${dom.id+1}`,sumC/dom.cells.length*cellW+cellW*0.5,sumR/dom.cells.length*cellH+cellH*0.5);
+    }
+    // initial cell marker
+    if (initialCell) {
+      const [ir,ic]=initialCell;
+      if (ir>=0&&ir<rows&&ic>=0&&ic<cols&&board[ir][ic]!==0) {
+        const x=ic*cellW+cellW/2, y=ir*cellH+cellH/2;
+        ctx.beginPath(); ctx.fillStyle='#7c3aed';
+        ctx.arc(x,y,Math.min(cellW,cellH)*0.27,0,2*Math.PI); ctx.fill();
+        ctx.strokeStyle='white'; ctx.lineWidth=Math.max(2,Math.min(cellW,cellH)*0.05); ctx.stroke();
+        ctx.fillStyle='white'; ctx.font=`bold ${Math.min(cellW,cellH)*0.22}px monospace`;
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('I',x,y);
+      }
+    }
+  }
+
+  // animated path drawing
+  function animatePaths(domains, onDone) {
+    if (animationId) cancelAnimationFrame(animationId);
+    const w=canvas.width, h=canvas.height;
+    const cellW=w/cols, cellH=h/rows;
+    // flatten all path segments across domains, with per-domain metadata
+    const allSegments=[];
+    for (let idx=0;idx<domains.length;idx++) {
+      const dom=domains[idx];
+      if (!dom.path||dom.path.length<2) continue;
+      const pts=dom.path.map(([r,c])=>({x:c*cellW+cellW/2,y:r*cellH+cellH/2}));
+      for (let i=1;i<pts.length;i++) allSegments.push({from:pts[i-1],to:pts[i],idx,dom,totalPts:pts.length,ptIdx:i,pts});
+    }
+    if (!allSegments.length){onDone&&onDone();return;}
+
+    const SEGMENTS_PER_FRAME=Math.max(1,Math.ceil(allSegments.length/50));
+    let drawn=0;
+    // draw all outlines first then fill
+    function frame() {
+      const end=Math.min(drawn+SEGMENTS_PER_FRAME,allSegments.length);
+      for (let s=drawn;s<end;s++) {
+        const {from,to,idx,dom}=allSegments[s];
+        const col=domainColors[idx%domainColors.length];
+        // outline
+        ctx.beginPath(); ctx.lineWidth=Math.max(4,Math.min(cellW,cellH)*0.22);
+        ctx.strokeStyle='rgba(0,0,0,0.5)';
+        ctx.setLineDash(dom.isComplete?[]:[8,6]);
+        ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.stroke();
+        // colored line
+        ctx.beginPath(); ctx.lineWidth=Math.max(2,Math.min(cellW,cellH)*0.12);
+        ctx.strokeStyle=dom.isComplete?'#FFFFFF':'#FFEAA7';
+        ctx.shadowColor=col; ctx.shadowBlur=8;
+        ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.stroke();
+        ctx.shadowBlur=0; ctx.setLineDash([]);
+      }
+      drawn=end;
+      // draw traveling dot on last drawn segment
+      if (drawn<allSegments.length) {
+        const {to,idx}=allSegments[drawn-1];
+        const col=domainColors[idx%domainColors.length];
+        ctx.beginPath(); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=12;
+        ctx.arc(to.x,to.y,Math.min(cellW,cellH)*0.15,0,2*Math.PI); ctx.fill();
+        ctx.shadowBlur=0;
+      }
+      if (drawn<allSegments.length) {
+        animationId=requestAnimationFrame(frame);
+      } else {
+        // draw all S/E markers
+        for (let idx=0;idx<domains.length;idx++) {
+          const dom=domains[idx];
+          if (!dom.path||dom.path.length<2) continue;
+          const pts=dom.path.map(([r,c])=>({x:c*cellW+cellW/2,y:r*cellH+cellH/2}));
+          const r=Math.min(cellW,cellH)*0.22;
+          ctx.beginPath(); ctx.fillStyle='#10b981'; ctx.arc(pts[0].x,pts[0].y,r,0,2*Math.PI); ctx.fill();
+          ctx.fillStyle='white'; ctx.font=`bold ${r}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('S',pts[0].x,pts[0].y);
+          const last=pts[pts.length-1];
+          ctx.beginPath(); ctx.fillStyle='#ef4444'; ctx.arc(last.x,last.y,r,0,2*Math.PI); ctx.fill();
+          ctx.fillStyle='white'; ctx.fillText('E',last.x,last.y);
+        }
+        onDone&&onDone();
+      }
+    }
+    animationId=requestAnimationFrame(frame);
+  }
+
+  // ── LEGEND ──
+  function renderLegend(domains) {
+    if (!domains.length){legendArea.innerHTML='<span style="color:var(--muted);font-size:0.7rem;">No domains — click Solve</span>';return;}
+    legendArea.innerHTML='';
+    domains.forEach((d,i)=>{
+      const col=domainColors[i%domainColors.length];
+      const sumStr=d.sum===0?'Δ=0':(d.sum===1?'Δ=+1':'Δ=−1');
+      let statusClass='none', statusText='No path';
+      if (d.warning){statusClass='none';statusText='⚠ warn';}
+      else if (d.isComplete){statusClass='full';statusText=`✓ ${d.coverage}/${d.cells.length}`;}
+      else if (d.path){statusClass='partial';statusText=`~ ${d.coverage}/${d.cells.length}`;}
+      const item=document.createElement('div');
+      item.className='legend-item';
+      item.style.animationDelay=`${i*40}ms`;
+      item.innerHTML=`
+        <div class="color-dot" style="background:${col};color:${col};"></div>
+        <span class="legend-name">D${i+1}</span>
+        <span class="legend-info">${d.cells.length} cells · ${sumStr}${d.forcedStart?' · fixed':''}</span>
+        <span class="legend-badge ${statusClass}">${statusText}</span>`;
+      legendArea.appendChild(item);
+    });
+  }
+
+  // ── REFRESH (no animation) ──
+  function refreshCanvasOnly() {
+    buildBoardFromRemoved();
+    if (animationId){cancelAnimationFrame(animationId);animationId=null;}
+    drawStaticBoard(currentDomains);
+    if (currentDomains.length) {
+      // draw static paths immediately (no animation on refresh)
+      const w=canvas.width, h=canvas.height, cellW=w/cols, cellH=h/rows;
+      for (let idx=0;idx<currentDomains.length;idx++) {
+        const dom=currentDomains[idx];
+        if (!dom.path||dom.path.length<2) continue;
+        const pts=dom.path.map(([r,c])=>({x:c*cellW+cellW/2,y:r*cellH+cellH/2}));
+        ctx.beginPath(); ctx.lineWidth=Math.max(4,Math.min(cellW,cellH)*0.22);
+        ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.setLineDash(dom.isComplete?[]:[8,6]);
+        ctx.moveTo(pts[0].x,pts[0].y); for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+        ctx.beginPath(); ctx.lineWidth=Math.max(2,Math.min(cellW,cellH)*0.12);
+        ctx.strokeStyle=dom.isComplete?'#FFFFFF':'#FFEAA7';
+        ctx.moveTo(pts[0].x,pts[0].y); for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+        ctx.setLineDash([]);
+        const r=Math.min(cellW,cellH)*0.22;
+        ctx.beginPath(); ctx.fillStyle='#10b981'; ctx.arc(pts[0].x,pts[0].y,r,0,2*Math.PI); ctx.fill();
+        ctx.fillStyle='white'; ctx.font=`bold ${r}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('S',pts[0].x,pts[0].y);
+        const last=pts[pts.length-1];
+        ctx.beginPath(); ctx.fillStyle='#ef4444'; ctx.arc(last.x,last.y,r,0,2*Math.PI); ctx.fill();
+        ctx.fillStyle='white'; ctx.fillText('E',last.x,last.y);
+      }
+    }
+    const comps=getComponents();
+    let lower=0; for (const c of comps) lower+=Math.max(1,Math.abs(c.imbalance));
+    lowerBoundSpan.textContent=lower; compCountSpan.textContent=comps.length;
+    domainCountSpan.textContent=currentDomains.length;
+    gapSpan.textContent=currentDomains.length-lower;
+    kBadge.textContent=`Σ = ${lower}`;
+    if (currentDomains.length) renderLegend(currentDomains); else renderLegend([]);
+  }
+
+  // ── SOLVE ──
+  async function solveDomainsAndPaths() {
+    setMessage('<strong>Computing…</strong> partitioning domains & searching optimal paths.', 'loading');
+    solveBtn.disabled=true; solveBtn.classList.add('loading');
+    solvingOverlay.classList.add('visible');
+    solvingText.textContent='PARTITIONING…';
+    progressWrap.classList.add('visible');
+    progressFill.style.width='0%';
+    progressLabel.textContent='0 / 0';
+    try {
+      buildBoardFromRemoved();
+      const rawDomains=computeAllDomains();
+      if (!rawDomains.length) {
+        currentDomains=[];
+        solvingOverlay.classList.remove('visible');
+        drawStaticBoard([]);
+        renderLegend([]);
+        domainCountSpan.textContent='0'; gapSpan.textContent='0'; kBadge.textContent='Σ = 0';
+        setMessage('<strong>No active cells.</strong> Remove fewer cells or resize.', 'warn');
+        progressWrap.classList.remove('visible');
+        return;
+      }
+      solvingText.textContent='SOLVING PATHS…';
+      progressLabel.textContent=`0 / ${rawDomains.length}`;
+      let forcedCell=null, initialNote='';
+      if (initialCell) {
+        const [ir,ic]=initialCell;
+        if (ir>=0&&ir<rows&&ic>=0&&ic<cols&&board[ir][ic]!==0) {
+          forcedCell=initialCell;
+          initialNote=` Fixed start at (${ir+1},${ic+1}).`;
+        } else initialNote=` Fixed start (${ir+1},${ic+1}) was removed — ignored.`;
+      }
+      const {domains:domainsWithPaths,fullSuccess,partialCount}=await computeAllPathsForDomains(rawDomains,forcedCell);
+      currentDomains=domainsWithPaths;
+      const lower=parseInt(lowerBoundSpan.textContent)||0;
+      const gap=domainsWithPaths.length-lower;
+      solvingText.textContent='DRAWING…';
+      // animate stats
+      animateStat(domainCountSpan, domainsWithPaths.length);
+      animateStat(gapSpan, gap);
+      kBadge.textContent=`Σ max(1,|B−W|) = ${lower}`;
+      // draw board first
+      drawStaticBoard(currentDomains);
+      // hide overlay and animate paths
+      solvingOverlay.classList.remove('visible');
+      animatePaths(currentDomains, ()=>{
+        renderLegend(currentDomains);
+        progressWrap.classList.remove('visible');
+      });
+      renderLegend(currentDomains);
+      if (fullSuccess===domainsWithPaths.length)
+        setMessage(`<strong>✨ Perfect!</strong> Hamiltonian paths found for all ${fullSuccess} domains. Paths stay strictly inside each domain.${initialNote}`, 'success');
+      else
+        setMessage(`<strong>✅ ${fullSuccess} full</strong> paths, ${partialCount} partial, ${domainsWithPaths.length-fullSuccess-partialCount} without path.${initialNote}`, fullSuccess>0?'success':'warn');
+    } catch(err) {
+      console.error(err);
+      solvingOverlay.classList.remove('visible');
+      progressWrap.classList.remove('visible');
+      setMessage('<strong>Error</strong> during path computation. Try a simpler pattern or smaller grid.', 'error');
+    } finally {
+      solveBtn.disabled=false; solveBtn.classList.remove('loading');
+    }
+  }
+
+  // ── UI ACTIONS ──
+  function setInitialFromInputs() {
+    let r=parseInt(initRowInp.value,10)-1, c=parseInt(initColInp.value,10)-1;
+    if (isNaN(r)||isNaN(c)){setMessage('<strong>⚠ Invalid</strong> row/column — must be numbers.','warn');return;}
+    r=Math.max(0,Math.min(rows-1,r)); c=Math.max(0,Math.min(cols-1,c));
+    initRowInp.value=r+1; initColInp.value=c+1;
+    initialCell=[r,c]; currentDomains=[];
+    buildBoardFromRemoved(); refreshCanvasOnly();
+    if (board[r][c]===0) setMessage(`<strong>⚠</strong> (${r+1},${c+1}) is currently removed.`,'warn');
+    else setMessage(`<strong>🎯 Fixed start</strong> set to (${r+1},${c+1}).`,'info');
+  }
+  function clearInitial() {
+    initialCell=null; currentDomains=[]; refreshCanvasOnly();
+    setMessage('Fixed start cleared.','info');
+  }
+  function resizeGrid() {
+    let nr=parseInt(rowsInp.value), nc=parseInt(colsInp.value);
+    if (isNaN(nr)) nr=7; if (isNaN(nc)) nc=7;
+    nr=Math.min(12,Math.max(3,nr)); nc=Math.min(12,Math.max(3,nc));
+    rows=nr; cols=nc; rowsInp.value=rows; colsInp.value=cols;
+    initRowInp.max=rows; initColInp.max=cols;
+    if (initialCell&&(initialCell[0]>=rows||initialCell[1]>=cols)) initialCell=null;
+    const newRemoved=new Set();
+    for (const key of removedSet){const [r,c]=key.split(',').map(Number);if (r<rows&&c<cols) newRemoved.add(key);}
+    removedSet=newRemoved; buildBoardFromRemoved(); currentDomains=[]; refreshCanvasOnly();
+  }
+  function clearRemovals() {
+    removedSet.clear(); buildBoardFromRemoved(); currentDomains=[]; refreshCanvasOnly();
+  }
+  function randomRemovals(pct=0.15) {
+    removedSet.clear();
+    const total=rows*cols, target=Math.floor(total*pct);
+    let candidates=[];
+    for (let i=0;i<rows;i++) for (let j=0;j<cols;j++) candidates.push(`${i},${j}`);
+    for (let t=0;t<target&&candidates.length;t++){const idx=Math.floor(Math.random()*candidates.length);removedSet.add(candidates[idx]);candidates.splice(idx,1);}
+    buildBoardFromRemoved(); currentDomains=[]; refreshCanvasOnly();
+  }
+  function handleCanvasClick(e) {
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+    const col=Math.floor(((e.clientX-rect.left)*scaleX)/(canvas.width/cols));
+    const row=Math.floor(((e.clientY-rect.top)*scaleY)/(canvas.height/rows));
+    if (row>=0&&row<rows&&col>=0&&col<cols) {
+      const key=`${row},${col}`;
+      if (removedSet.has(key)) removedSet.delete(key); else removedSet.add(key);
+      currentDomains=[]; buildBoardFromRemoved(); refreshCanvasOnly();
+    }
+  }
+
+  // ── EVENTS ──
+  resizeBtn.addEventListener('click',resizeGrid);
+  clearBtn.addEventListener('click',clearRemovals);
+  randomBtn.addEventListener('click',()=>randomRemovals(0.15));
+  setInitBtn.addEventListener('click',setInitialFromInputs);
+  clearInitBtn.addEventListener('click',clearInitial);
+  solveBtn.addEventListener('click',solveDomainsAndPaths);
+  canvas.addEventListener('click',handleCanvasClick);
+  window.addEventListener('resize',()=>refreshCanvasOnly());
+
+  buildBoardFromRemoved();
+  refreshCanvasOnly();
+})();
+</script>
+</body>
+</html>

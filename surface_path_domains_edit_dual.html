@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surface Domains Editor + Dual Mesh Paths</title>
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      margin: 0;
+      padding: 18px;
+      background: #eef2f5;
+      color: #1f2937;
+      font-family: Segoe UI, Roboto, system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      width: min(1220px, 100%);
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+      padding: 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      font-weight: 650;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .note {
+      margin: 0 0 14px;
+      padding-left: 12px;
+      border-left: 4px solid #2563eb;
+      color: #334155;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+    .toolbar, .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .group, .stat {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    label { font-size: 0.75rem; font-weight: 650; color: #475569; }
+    select, input {
+      border: 1px solid #cbd5e1;
+      background: white;
+      border-radius: 8px;
+      padding: 5px 7px;
+      font-weight: 600;
+      width: 76px;
+    }
+    select { width: 116px; }
+    input[type="range"] { width: 120px; }
+    button {
+      border: 1px solid #cbd5e1;
+      background: white;
+      border-radius: 9px;
+      padding: 7px 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.primary { background: #2563eb; border-color: #2563eb; color: white; }
+    button:hover { filter: brightness(0.97); }
+    canvas {
+      width: 100%;
+      height: min(74vh, 760px);
+      min-height: 560px;
+      display: block;
+      background: radial-gradient(circle at 50% 46%, #eef6ff 0%, #dbe8f4 58%, #cbd9e8 100%);
+      border-radius: 16px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .stat {
+      min-width: 120px;
+      justify-content: space-between;
+      font-size: 0.78rem;
+    }
+    .value { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
+    .message {
+      margin-top: 12px;
+      background: #fff7ed;
+      border-left: 4px solid #f97316;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.86rem;
+    }
+    .legend {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 150px;
+      overflow: auto;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #f1f5f9;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.73rem;
+    }
+    .swatch { width: 16px; height: 16px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+<main class="app">
+  <h1>
+    Surface Domains Editor + Dual Mesh Paths
+    <span id="badge">ready</span>
+  </h1>
+  <p class="note">
+    Sphere and ellipsoid use a projected cube quad-mesh, so the graph stays bipartite.
+    Torus uses a periodic square mesh; keep both torus counts even for a consistent checkerboard.
+    Drag to rotate, use the zoom slider or mouse wheel to zoom, click vertices to remove/restore holes, then solve.
+    Path search uses the same style as the 2D board solver: every start, reachability-aware Warnsdorff trials, then iterative DFS.
+    Vertex mode walks through nodes; face-dual mode walks across surface tiles.
+  </p>
+
+  <section class="toolbar">
+    <div class="group">
+      <label>surface</label>
+      <select id="surfaceSel">
+        <option value="sphere">sphere</option>
+        <option value="ellipsoid">ellipsoid</option>
+        <option value="torus">torus</option>
+      </select>
+    </div>
+    <div class="group">
+      <label>graph</label>
+      <select id="graphModeSel">
+        <option value="vertex">vertices</option>
+        <option value="face">face dual</option>
+      </select>
+    </div>
+    <div class="group" id="cubeGroup">
+      <label>cube N</label>
+      <input id="subInp" type="number" value="4" min="2" max="7">
+    </div>
+    <div class="group" id="torusGroup">
+      <label>torus U</label>
+      <input id="uInp" type="number" value="18" min="6" max="34" step="2">
+      <label>V</label>
+      <input id="vInp" type="number" value="12" min="6" max="28" step="2">
+    </div>
+    <div class="group">
+      <label>yaw</label>
+      <input id="yawInp" type="range" min="-180" max="180" value="-28">
+      <label>pitch</label>
+      <input id="pitchInp" type="range" min="-75" max="75" value="-18">
+      <label>zoom</label>
+      <input id="zoomInp" type="range" min="70" max="280" value="185">
+    </div>
+    <button id="resetViewBtn">reset view</button>
+    <button id="buildBtn">build mesh</button>
+    <button id="clearBtn">clear holes</button>
+    <button id="randomBtn">random holes</button>
+    <button id="solveBtn" class="primary">solve domains + paths</button>
+    <button id="mergeBtn">merge selected</button>
+    <button id="splitBtn">split selected</button>
+    <button id="rerunBtn">rerun paths</button>
+  </section>
+
+  <canvas id="canvas" width="1100" height="720"></canvas>
+
+  <section class="stats">
+    <div class="stat">vertices <span class="value" id="vertStat">0</span></div>
+    <div class="stat">components <span class="value" id="compStat">0</span></div>
+    <div class="stat">lower bound <span class="value" id="lowerStat">0</span></div>
+    <div class="stat">domains <span class="value" id="domainStat">0</span></div>
+    <div class="stat">full paths <span class="value" id="fullStat">0</span></div>
+    <div class="stat">path nodes <span class="value" id="pathNodeStat">0/0</span></div>
+    <div class="stat">coverage <span class="value" id="coverageStat">0%</span></div>
+  </section>
+  <div class="message" id="message">Ready.</div>
+  <div class="legend" id="legend"></div>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const surfaceSel = document.getElementById("surfaceSel");
+  const graphModeSel = document.getElementById("graphModeSel");
+  const subInp = document.getElementById("subInp");
+  const uInp = document.getElementById("uInp");
+  const vInp = document.getElementById("vInp");
+  const yawInp = document.getElementById("yawInp");
+  const pitchInp = document.getElementById("pitchInp");
+  const zoomInp = document.getElementById("zoomInp");
+  const resetViewBtn = document.getElementById("resetViewBtn");
+  const buildBtn = document.getElementById("buildBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const randomBtn = document.getElementById("randomBtn");
+  const solveBtn = document.getElementById("solveBtn");
+  const mergeBtn = document.getElementById("mergeBtn");
+  const splitBtn = document.getElementById("splitBtn");
+  const rerunBtn = document.getElementById("rerunBtn");
+  const message = document.getElementById("message");
+  const legend = document.getElementById("legend");
+  const badge = document.getElementById("badge");
+  const vertStat = document.getElementById("vertStat");
+  const compStat = document.getElementById("compStat");
+  const lowerStat = document.getElementById("lowerStat");
+  const domainStat = document.getElementById("domainStat");
+  const fullStat = document.getElementById("fullStat");
+  const pathNodeStat = document.getElementById("pathNodeStat");
+  const coverageStat = document.getElementById("coverageStat");
+  const cubeGroup = document.getElementById("cubeGroup");
+  const torusGroup = document.getElementById("torusGroup");
+
+  const regionColors = ["#fca5a5","#93c5fd","#86efac","#fde68a","#d8b4fe","#5eead4","#fdba74","#f9a8d4","#c4b5fd","#bef264"];
+  const pathColors = ["#dc2626","#2563eb","#16a34a","#d97706","#9333ea","#0f766e","#ea580c","#db2777","#6d28d9","#65a30d"];
+  let mesh = { vertices: [], edges: [], faces: [], adj: [] };
+  let removed = new Set();
+  let domains = [];
+  let selectedDomains = new Set();
+  let graph = { nodes: [], adj: [] };
+  let projected = [];
+  let dragState = null;
+
+  function clampEven(v, lo, hi) {
+    v = Math.max(lo, Math.min(hi, Math.round(v || lo)));
+    return v % 2 ? v + 1 : v;
+  }
+
+  function addEdge(edgeSet, a, b) {
+    if (a === b) return;
+    const x = Math.min(a,b), y = Math.max(a,b);
+    edgeSet.add(`${x},${y}`);
+  }
+
+  function makeCubeSurface(kind, n) {
+    const vertices = [];
+    const index = new Map();
+    for (let x = -n; x <= n; x++) {
+      for (let y = -n; y <= n; y++) {
+        for (let z = -n; z <= n; z++) {
+          if (Math.max(Math.abs(x), Math.abs(y), Math.abs(z)) !== n) continue;
+          const key = `${x},${y},${z}`;
+          const len = Math.hypot(x,y,z) || 1;
+          const sx = x / len, sy = y / len, sz = z / len;
+          const pos = kind === "ellipsoid" ? [1.35*sx, 0.9*sy, 0.72*sz] : [sx, sy, sz];
+          index.set(key, vertices.length);
+          vertices.push({ pos, color: ((x + y + z) & 1) ? -1 : 1, key });
+        }
+      }
+    }
+    const edgeSet = new Set();
+    const faces = [];
+    const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    for (const [key, i] of index) {
+      const [x,y,z] = key.split(",").map(Number);
+      for (const [dx,dy,dz] of dirs) {
+        const j = index.get(`${x+dx},${y+dy},${z+dz}`);
+        if (j !== undefined) addEdge(edgeSet, i, j);
+      }
+    }
+    const get = (x,y,z) => index.get(`${x},${y},${z}`);
+    for (const side of [-n, n]) {
+      for (let a = -n; a < n; a++) {
+        for (let b = -n; b < n; b++) {
+          faces.push([get(side,a,b), get(side,a+1,b), get(side,a+1,b+1), get(side,a,b+1)]);
+          faces.push([get(a,side,b), get(a+1,side,b), get(a+1,side,b+1), get(a,side,b+1)]);
+          faces.push([get(a,b,side), get(a+1,b,side), get(a+1,b+1,side), get(a,b+1,side)]);
+        }
+      }
+    }
+    return finalizeMesh(vertices, edgeSet, faces.filter(face => face.every(v => v !== undefined)));
+  }
+
+  function makeTorus(uCount, vCount) {
+    const vertices = [];
+    const edgeSet = new Set();
+    const faces = [];
+    const R = 1.1, r = 0.42;
+    for (let i = 0; i < uCount; i++) {
+      const u = 2 * Math.PI * i / uCount;
+      for (let j = 0; j < vCount; j++) {
+        const v = 2 * Math.PI * j / vCount;
+        const x = (R + r * Math.cos(v)) * Math.cos(u);
+        const y = (R + r * Math.cos(v)) * Math.sin(u);
+        const z = r * Math.sin(v);
+        vertices.push({ pos: [x,y,z], color: ((i + j) & 1) ? -1 : 1, ij: [i,j] });
+      }
+    }
+    const id = (i,j) => ((i + uCount) % uCount) * vCount + ((j + vCount) % vCount);
+    for (let i = 0; i < uCount; i++) {
+      for (let j = 0; j < vCount; j++) {
+        addEdge(edgeSet, id(i,j), id(i+1,j));
+        addEdge(edgeSet, id(i,j), id(i,j+1));
+        faces.push([id(i,j), id(i+1,j), id(i+1,j+1), id(i,j+1)]);
+      }
+    }
+    return finalizeMesh(vertices, edgeSet, faces);
+  }
+
+  function finalizeMesh(vertices, edgeSet, faces=[]) {
+    const edges = [...edgeSet].map(s => s.split(",").map(Number));
+    const adj = Array.from({ length: vertices.length }, () => []);
+    for (const [a,b] of edges) {
+      adj[a].push(b);
+      adj[b].push(a);
+    }
+    return { vertices, edges, faces, adj };
+  }
+
+  function buildMesh() {
+    const kind = surfaceSel.value;
+    removed.clear();
+    domains = [];
+    selectedDomains.clear();
+    if (kind === "torus") {
+      const u = clampEven(Number(uInp.value), 6, 34);
+      const v = clampEven(Number(vInp.value), 6, 28);
+      uInp.value = u; vInp.value = v;
+      mesh = makeTorus(u, v);
+    } else {
+      const n = Math.max(2, Math.min(7, Math.round(Number(subInp.value) || 4)));
+      subInp.value = n;
+      mesh = makeCubeSurface(kind, n);
+    }
+    updateControls();
+    draw();
+    const comps = activeComponents();
+    const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+    setStats(comps, lower, 0);
+    message.textContent = `${kind} mesh built. Click vertices to make holes, or solve directly.`;
+  }
+
+  function updateControls() {
+    const isTorus = surfaceSel.value === "torus";
+    torusGroup.style.display = isTorus ? "inline-flex" : "none";
+    cubeGroup.style.display = isTorus ? "none" : "inline-flex";
+  }
+
+  function faceCenter(face) {
+    const p = [0,0,0];
+    for (const v of face) {
+      const q = mesh.vertices[v].pos;
+      p[0] += q[0]; p[1] += q[1]; p[2] += q[2];
+    }
+    return p.map(x => x / face.length);
+  }
+
+  function buildWorkingGraph() {
+    if (graphModeSel.value === "vertex") {
+      graph = {
+        nodes: mesh.vertices.map((v,i) => ({ id: i, kind: "vertex", pos: v.pos, color: v.color, removed: removed.has(i) })),
+        adj: mesh.adj.map(list => list.slice())
+      };
+      return;
+    }
+
+    const edgeToFaces = new Map();
+    for (let i = 0; i < mesh.faces.length; i++) {
+      const face = mesh.faces[i];
+      for (let k = 0; k < face.length; k++) {
+        const a = face[k], b = face[(k + 1) % face.length];
+        const key = `${Math.min(a,b)},${Math.max(a,b)}`;
+        if (!edgeToFaces.has(key)) edgeToFaces.set(key, []);
+        edgeToFaces.get(key).push(i);
+      }
+    }
+    const adj = Array.from({ length: mesh.faces.length }, () => []);
+    for (const faces of edgeToFaces.values()) {
+      if (faces.length !== 2) continue;
+      adj[faces[0]].push(faces[1]);
+      adj[faces[1]].push(faces[0]);
+    }
+    const nodes = mesh.faces.map((face,i) => ({
+      id: i,
+      kind: "face",
+      face,
+      pos: faceCenter(face),
+      color: 0,
+      removed: face.some(v => removed.has(v))
+    }));
+
+    const color = Array(nodes.length).fill(0);
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].removed || color[i]) continue;
+      color[i] = 1;
+      const q = [i];
+      for (let head = 0; head < q.length; head++) {
+        const u = q[head];
+        for (const v of adj[u]) {
+          if (nodes[v].removed) continue;
+          if (!color[v]) {
+            color[v] = -color[u];
+            q.push(v);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < nodes.length; i++) nodes[i].color = color[i] || 1;
+    graph = { nodes, adj };
+  }
+
+  function activeComponents() {
+    buildWorkingGraph();
+    const seen = new Uint8Array(graph.nodes.length);
+    const comps = [];
+    for (let i = 0; i < graph.nodes.length; i++) {
+      if (graph.nodes[i].removed || seen[i]) continue;
+      const q = [i];
+      const cells = [];
+      seen[i] = 1;
+      let a = 0, b = 0;
+      for (let head = 0; head < q.length; head++) {
+        const u = q[head];
+        cells.push(u);
+        if (graph.nodes[u].color === 1) a++; else b++;
+        for (const v of graph.adj[u]) {
+          if (!graph.nodes[v].removed && !seen[v]) {
+            seen[v] = 1;
+            q.push(v);
+          }
+        }
+      }
+      comps.push({ cells, imbalance: a - b, a, b });
+    }
+    return comps;
+  }
+
+  function treeCut(component) {
+    const cells = component.cells;
+    const local = new Map(cells.map((v,i) => [v,i]));
+    const n = cells.length;
+    const children = Array.from({ length: n }, () => []);
+    const parent = Array(n).fill(-1);
+    const seen = new Uint8Array(n);
+    const stack = [0];
+    seen[0] = 1;
+    while (stack.length) {
+      const u = stack.pop();
+      for (const gv of graph.adj[cells[u]]) {
+        if (graph.nodes[gv].removed || !local.has(gv)) continue;
+        const v = local.get(gv);
+        if (!seen[v]) {
+          seen[v] = 1;
+          parent[v] = u;
+          children[u].push(v);
+          stack.push(v);
+        }
+      }
+    }
+    const post = [];
+    const st = [[0,false]];
+    while (st.length) {
+      const [u, done] = st.pop();
+      if (done) post.push(u);
+      else {
+        st.push([u,true]);
+        for (const v of children[u]) st.push([v,false]);
+      }
+    }
+    const sign = component.imbalance > 0 ? 1 : -1;
+    const f = Array(n).fill(0);
+    for (const u of post) {
+      f[u] = graph.nodes[cells[u]].color;
+      for (const v of children[u]) f[u] += f[v];
+    }
+    const curF = f.slice();
+    const assigned = new Uint8Array(n);
+    const cutDomains = [];
+    const cutsNeeded = Math.abs(component.imbalance) - 1;
+    for (let k = 0; k < cutsNeeded; k++) {
+      let node = -1;
+      for (let p = post.length - 1; p >= 0; p--) {
+        const u = post[p];
+        if (u !== 0 && !assigned[u] && curF[u] === sign) { node = u; break; }
+      }
+      if (node < 0) break;
+      const q = [node], sub = [];
+      const subSeen = new Set([node]);
+      for (let head = 0; head < q.length; head++) {
+        const u = q[head];
+        sub.push(u);
+        for (const v of children[u]) {
+          if (!assigned[v] && !subSeen.has(v)) {
+            subSeen.add(v);
+            q.push(v);
+          }
+        }
+      }
+      for (const u of sub) assigned[u] = 1;
+      cutDomains.push(sub.map(i => cells[i]));
+      for (let a = parent[node]; a >= 0; a = parent[a]) curF[a] -= sign;
+    }
+    const rest = [];
+    for (let i = 0; i < n; i++) if (!assigned[i]) rest.push(cells[i]);
+    if (rest.length) cutDomains.push(rest);
+    return cutDomains;
+  }
+
+  function domainValue(cells) {
+    return cells.reduce((s, v) => s + graph.nodes[v].color, 0);
+  }
+
+  function solveDomains() {
+    const comps = activeComponents();
+    const all = [];
+    let lower = 0;
+    for (const comp of comps) {
+      lower += Math.max(1, Math.abs(comp.imbalance));
+      if (comp.imbalance === 0) {
+        all.push({ cells: comp.cells, sum: 0 });
+      } else {
+        const ds = treeCut(comp);
+        for (const cells of ds) all.push({ cells, sum: domainValue(cells) });
+      }
+    }
+    return { domains: all.map((d,i) => ({ ...d, id: i })), comps, lower };
+  }
+
+  function adjacencyForDomain(cells) {
+    const map = new Map(cells.map((v,i) => [v,i]));
+    const adj = Array.from({ length: cells.length }, () => []);
+    for (let i = 0; i < cells.length; i++) {
+      for (const gv of graph.adj[cells[i]]) {
+        const j = map.get(gv);
+        if (j !== undefined) adj[i].push(j);
+      }
+    }
+    return adj;
+  }
+
+  function endpointCanReachAllRemaining(current, visited, adj, remainingCount) {
+    if (remainingCount === 0) return true;
+    const stack = [];
+    const seen = new Uint8Array(adj.length);
+    for (const v of adj[current]) {
+      if (!visited[v]) {
+        seen[v] = 1;
+        stack.push(v);
+      }
+    }
+    let reached = 0;
+    while (stack.length) {
+      const u = stack.pop();
+      reached++;
+      for (const v of adj[u]) {
+        if (!visited[v] && !seen[v]) {
+          seen[v] = 1;
+          stack.push(v);
+        }
+      }
+    }
+    return reached === remainingCount;
+  }
+
+  function greedyPath(start, adj, randomize=false) {
+    const n = adj.length, visited = new Uint8Array(n), path = [start];
+    visited[start] = 1;
+    while (path.length < n) {
+      const u = path[path.length - 1];
+      const candidates = [];
+      for (const v of adj[u]) {
+        if (visited[v]) continue;
+        visited[v] = 1;
+        if (endpointCanReachAllRemaining(v, visited, adj, n - path.length - 1)) {
+          let future = 0;
+          for (const w of adj[v]) if (!visited[w]) future++;
+          candidates.push({ v, future, degree: adj[v].length });
+        }
+        visited[v] = 0;
+      }
+      if (!candidates.length) break;
+      candidates.sort((a,b) => (a.future - b.future) || (a.degree - b.degree));
+      const pickFrom = randomize ? Math.min(candidates.length, 1 + Math.floor(Math.random() * 3)) : 1;
+      const take = Math.floor(Math.random() * pickFrom);
+      const next = candidates[take].v;
+      visited[next] = 1;
+      path.push(next);
+    }
+    return path;
+  }
+
+  function orderedNeighbors(u, visited, adj) {
+    return adj[u]
+      .filter(v => !visited[v])
+      .map(v => ({ v, future: adj[v].filter(w => !visited[w]).length }))
+      .sort((a,b) => a.future - b.future)
+      .map(x => x.v);
+  }
+
+  function bestPath(cells) {
+    const n = cells.length;
+    if (n <= 1) return { path: cells.slice(), full: true };
+    const adj = adjacencyForDomain(cells);
+    const degreeOne = [];
+    for (let i = 0; i < n; i++) if (adj[i].length <= 1) degreeOne.push(i);
+    const allStarts = [...Array(n).keys()].sort((a,b) => adj[a].length - adj[b].length);
+    const starts = [...new Set([...degreeOne, ...allStarts])];
+    let best = [];
+
+    for (const s of starts) {
+      const p = greedyPath(s, adj, false);
+      if (p.length > best.length) best = p;
+      if (best.length === n) return { path: best.map(i => cells[i]), full: true };
+    }
+
+    const tries = n > 46 ? 220 : 60;
+    for (let t = 0; t < tries; t++) {
+      const p = greedyPath(starts[t % starts.length], adj, true);
+      if (p.length > best.length) best = p;
+      if (best.length === n) return { path: best.map(i => cells[i]), full: true };
+    }
+
+    const deadline = performance.now() + (n > 46 ? 4500 : 1800);
+    let timedOut = false;
+    let dfsSteps = 0;
+    for (const s of starts) {
+      if (timedOut) break;
+      const visited = new Uint8Array(n), path = [s], stack = [];
+      visited[s] = 1;
+      stack.push({ u: s, next: 0, ns: orderedNeighbors(s, visited, adj) });
+      while (stack.length) {
+        if ((++dfsSteps & 2047) === 0 && performance.now() > deadline) {
+          timedOut = true;
+          break;
+        }
+        if (path.length > best.length) best = path.slice();
+        if (path.length === n) return { path: path.map(i => cells[i]), full: true };
+        const top = stack[stack.length - 1];
+        if (top.next < top.ns.length) {
+          const v = top.ns[top.next++];
+          if (!visited[v]) {
+            visited[v] = 1;
+            path.push(v);
+            stack.push({ u: v, next: 0, ns: orderedNeighbors(v, visited, adj) });
+          }
+        } else {
+          stack.pop();
+          visited[path.pop()] = 0;
+        }
+      }
+    }
+    return { path: best.map(i => cells[i]), full: best.length === n };
+  }
+
+  async function solveAll() {
+    solveBtn.disabled = true;
+    message.textContent = "Partitioning mesh and searching paths...";
+    await new Promise(r => setTimeout(r, 20));
+    const result = solveDomains();
+    domains = [];
+    selectedDomains.clear();
+    let full = 0;
+    for (let i = 0; i < result.domains.length; i++) {
+      const d = result.domains[i];
+      const p = bestPath(d.cells);
+      if (p.full) full++;
+      domains.push({ ...d, path: p.path, full: p.full });
+      if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    setStats(result.comps, result.lower, full);
+    renderLegend();
+    draw();
+    message.textContent = `Done: ${full}/${domains.length} domains have Hamiltonian paths; partial paths show best coverage found.`;
+    solveBtn.disabled = false;
+  }
+
+  function project() {
+    const yaw = Number(yawInp.value) * Math.PI / 180;
+    const pitch = Number(pitchInp.value) * Math.PI / 180;
+    const zoom = Number(zoomInp.value) / 100;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const w = canvas.width, h = canvas.height;
+    const scale = Math.min(w, h) * 0.46 * zoom;
+    projected = mesh.vertices.map(({ pos }) => {
+      let [x,y,z] = pos;
+      const x1 = cy*x + sy*z, z1 = -sy*x + cy*z;
+      const y1 = cp*y - sp*z1, z2 = sp*y + cp*z1;
+      const perspective = 1 / (2.15 - z2 * 0.28);
+      return {
+        x: w/2 + x1 * scale * perspective,
+        y: h/2 - y1 * scale * perspective,
+        z: z2,
+        p: perspective
+      };
+    });
+  }
+
+  function projectPoint(pos) {
+    const yaw = Number(yawInp.value) * Math.PI / 180;
+    const pitch = Number(pitchInp.value) * Math.PI / 180;
+    const zoom = Number(zoomInp.value) / 100;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const w = canvas.width, h = canvas.height;
+    const scale = Math.min(w, h) * 0.46 * zoom;
+    let [x,y,z] = pos;
+    const x1 = cy*x + sy*z, z1 = -sy*x + cy*z;
+    const y1 = cp*y - sp*z1, z2 = sp*y + cp*z1;
+    const perspective = 1 / (2.15 - z2 * 0.28);
+    return { x: w/2 + x1 * scale * perspective, y: h/2 - y1 * scale * perspective, z: z2, p: perspective };
+  }
+
+  function nodePoint(id) {
+    if (graphModeSel.value === "face" && graph.nodes[id]) return projectPoint(graph.nodes[id].pos);
+    return projected[id];
+  }
+
+  function draw() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    project();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.lineCap = "round";
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(15, 23, 42, 0.08)";
+    ctx.ellipse(cx, cy + canvas.height * 0.22, canvas.width * 0.2, canvas.height * 0.045, 0, 0, Math.PI * 2);
+    ctx.fill();
+    buildWorkingGraph();
+    const domainOf = new Map();
+    domains.forEach((d, i) => d.cells.forEach(v => domainOf.set(v, i)));
+    const faceOrder = mesh.faces.slice().sort((a,b) => {
+      const za = a.reduce((s,v) => s + projected[v].z, 0) / a.length;
+      const zb = b.reduce((s,v) => s + projected[v].z, 0) / b.length;
+      return za - zb;
+    });
+    for (const face of faceOrder) {
+      if (face.some(v => removed.has(v))) continue;
+      const avgZ = face.reduce((s,v) => s + projected[v].z, 0) / face.length;
+      const depth = Math.max(0, Math.min(1, (avgZ + 1.5) / 3));
+      const faceIndex = graphModeSel.value === "face" ? mesh.faces.indexOf(face) : -1;
+      const faceDomains = graphModeSel.value === "face" && faceIndex >= 0
+        ? [domainOf.get(faceIndex)]
+        : face.map(v => domainOf.get(v));
+      const sameDomain = faceDomains[0] !== undefined && faceDomains.every(d => d === faceDomains[0]);
+      ctx.beginPath();
+      ctx.moveTo(projected[face[0]].x, projected[face[0]].y);
+      for (let i = 1; i < face.length; i++) ctx.lineTo(projected[face[i]].x, projected[face[i]].y);
+      ctx.closePath();
+      if (sameDomain) {
+        ctx.fillStyle = regionColors[faceDomains[0] % regionColors.length] + (Math.round(150 + depth * 55)).toString(16).padStart(2, "0");
+      } else {
+        const light = Math.round(188 + depth * 42);
+        ctx.fillStyle = `rgb(255, ${light}, 72)`;
+      }
+      ctx.fill();
+      ctx.strokeStyle = sameDomain
+        ? `rgba(15, 23, 42, ${0.08 + depth * 0.1})`
+        : `rgba(146, 88, 12, ${0.12 + depth * 0.12})`;
+      ctx.lineWidth = sameDomain ? 0.55 : 0.7;
+      ctx.stroke();
+    }
+    const edgeOrder = mesh.edges.slice().sort((a,b) => ((projected[a[0]].z + projected[a[1]].z) - (projected[b[0]].z + projected[b[1]].z)));
+    for (const [a,b] of edgeOrder) {
+      if (removed.has(a) || removed.has(b)) continue;
+      const depth = Math.max(0, Math.min(1, ((projected[a].z + projected[b].z) / 2 + 1.5) / 3));
+      const da = domainOf.get(a), db = domainOf.get(b);
+      ctx.beginPath();
+      if (da !== undefined && db !== undefined && da !== db) {
+        ctx.strokeStyle = `rgba(15, 23, 42, ${0.42 + depth * 0.26})`;
+        ctx.lineWidth = 1.6 + depth * 1.1;
+      } else {
+        ctx.strokeStyle = `rgba(120, 72, 16, ${0.1 + depth * 0.14})`;
+        ctx.lineWidth = 0.45 + depth * 0.55;
+      }
+      ctx.moveTo(projected[a].x, projected[a].y);
+      ctx.lineTo(projected[b].x, projected[b].y);
+      ctx.stroke();
+    }
+    if (graphModeSel.value === "face") {
+      const centers = graph.nodes.map(n => projectPoint(n.pos));
+      const order = graph.nodes.map((_,i) => i).sort((a,b) => centers[a].z - centers[b].z);
+      for (const i of order) {
+        if (graph.nodes[i].removed) continue;
+        const p = centers[i];
+        const depth = Math.max(0, Math.min(1, (p.z + 1.5) / 3));
+        const r = 5.3 * (0.78 + depth * 0.5);
+        ctx.beginPath();
+        ctx.fillStyle = graph.nodes[i].color === 1 ? "#f8fafc" : "#111827";
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(15, 23, 42, 0.35)";
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+      }
+    }
+    const verts = mesh.vertices.map((_,i) => i).sort((a,b) => projected[a].z - projected[b].z);
+    if (graphModeSel.value === "vertex") for (const i of verts) {
+      const p = projected[i];
+      const depth = Math.max(0, Math.min(1, (p.z + 1.5) / 3));
+      const r = (removed.has(i) ? 6.2 : 4.7) * (0.75 + depth * 0.55);
+      ctx.beginPath();
+      if (removed.has(i)) ctx.fillStyle = "#334155";
+      else ctx.fillStyle = mesh.vertices[i].color === 1 ? "#f8fafc" : "#111827";
+      ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = removed.has(i) ? "#fca5a5" : `rgba(15, 23, 42, ${0.18 + depth * 0.28})`;
+      ctx.lineWidth = removed.has(i) ? 2.2 : 0.8;
+      ctx.stroke();
+      if (removed.has(i)) {
+        ctx.beginPath();
+        ctx.strokeStyle = "#fecaca";
+        ctx.lineWidth = 2;
+        ctx.moveTo(p.x - r*0.55, p.y - r*0.55);
+        ctx.lineTo(p.x + r*0.55, p.y + r*0.55);
+        ctx.moveTo(p.x + r*0.55, p.y - r*0.55);
+        ctx.lineTo(p.x - r*0.55, p.y + r*0.55);
+        ctx.stroke();
+      }
+    }
+    for (const i of selectedDomains) {
+      const d = domains[i];
+      if (!d) continue;
+      ctx.beginPath();
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 3;
+      for (const node of d.cells) {
+        const p = nodePoint(node);
+        if (!p) continue;
+        ctx.moveTo(p.x + 11, p.y);
+        ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+      }
+      ctx.stroke();
+    }
+    for (let i = 0; i < domains.length; i++) {
+      const path = domains[i].path || [];
+      if (path.length < 2) continue;
+      const pathColor = "#dc2626";
+      ctx.beginPath();
+      ctx.lineWidth = domains[i].full ? 8.5 : 7;
+      ctx.strokeStyle = "#ffffff";
+      ctx.setLineDash(domains[i].full ? [] : [7,6]);
+      let p0 = nodePoint(path[0]);
+      ctx.moveTo(p0.x, p0.y);
+      for (let k = 1; k < path.length; k++) {
+        const p = nodePoint(path[k]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.lineWidth = domains[i].full ? 5.2 : 4.2;
+      ctx.strokeStyle = pathColor;
+      p0 = nodePoint(path[0]);
+      ctx.moveTo(p0.x, p0.y);
+      for (let k = 1; k < path.length; k++) {
+        const p = nodePoint(path[k]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const first = nodePoint(path[0]);
+      const last = nodePoint(path[path.length - 1]);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(first.x, first.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = pathColor;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = pathColor;
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function setStats(comps, lower, full) {
+    buildWorkingGraph();
+    const active = graph.nodes.filter(n => !n.removed).length;
+    const pathNodes = domains.reduce((s, d) => s + (d.path ? d.path.length : 0), 0);
+    vertStat.textContent = active;
+    compStat.textContent = comps.length;
+    lowerStat.textContent = lower;
+    domainStat.textContent = domains.length;
+    fullStat.textContent = full;
+    pathNodeStat.textContent = `${pathNodes}/${active}`;
+    coverageStat.textContent = active ? `${Math.round(pathNodes * 100 / active)}%` : "0%";
+    badge.textContent = `${surfaceSel.value} ${graphModeSel.value} | ${active} active`;
+  }
+
+  function renderLegend() {
+    legend.innerHTML = domains.map((d,i) => {
+      const cov = d.path ? d.path.length : 0;
+      return `<span class="chip"><span class="swatch" style="background:#ffd248; border:3px solid #dc2626"></span>D${i+1} ${d.cells.length} vertices Δ=${d.sum} ${d.full ? "full" : `partial ${cov}/${d.cells.length}`}</span>`;
+    }).join("");
+  }
+
+  function pickVertex(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const x = evt.clientX - rect.left, y = evt.clientY - rect.top;
+    if (domains.length) {
+      const d = pickDomainAt(x, y);
+      if (d >= 0) {
+        if (selectedDomains.has(d)) selectedDomains.delete(d);
+        else selectedDomains.add(d);
+        message.textContent = selectedDomains.size
+          ? `Selected domains: ${[...selectedDomains].map(i => `D${i+1}`).join(", ")}`
+          : "No domains selected.";
+        draw();
+        return;
+      }
+    }
+    let best = -1, bestD = 16 * 16;
+    for (let i = 0; i < projected.length; i++) {
+      const dx = projected[i].x - x, dy = projected[i].y - y;
+      const d = dx*dx + dy*dy;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best >= 0) {
+      if (removed.has(best)) removed.delete(best);
+      else removed.add(best);
+      domains = [];
+      const comps = activeComponents();
+      const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+      setStats(comps, lower, 0);
+      legend.innerHTML = "";
+      draw();
+    }
+  }
+
+  function pickDomainAt(x, y) {
+    let bestDomain = -1;
+    let bestD = 24 * 24;
+    for (let i = 0; i < domains.length; i++) {
+      for (const node of domains[i].cells) {
+        const p = nodePoint(node);
+        if (!p) continue;
+        const dx = p.x - x, dy = p.y - y;
+        const d = dx*dx + dy*dy;
+        if (d < bestD) {
+          bestD = d;
+          bestDomain = i;
+        }
+      }
+    }
+    return bestDomain;
+  }
+
+  async function rerunExistingPaths() {
+    if (!domains.length) {
+      message.textContent = "No domains yet. Solve first.";
+      return;
+    }
+    buildWorkingGraph();
+    solveBtn.disabled = true;
+    rerunBtn.disabled = true;
+    let full = 0;
+    for (let i = 0; i < domains.length; i++) {
+      const p = bestPath(domains[i].cells);
+      domains[i].path = p.path;
+      domains[i].full = p.full;
+      if (p.full) full++;
+      if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    const comps = activeComponents();
+    const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+    setStats(comps, lower, full);
+    renderLegend();
+    draw();
+    message.textContent = `Reran paths: ${full}/${domains.length} domains full.`;
+    solveBtn.disabled = false;
+    rerunBtn.disabled = false;
+  }
+
+  async function mergeSelectedDomains() {
+    if (selectedDomains.size < 2) {
+      message.textContent = "Select at least two subdomains to merge.";
+      return;
+    }
+    buildWorkingGraph();
+    const selected = [...selectedDomains].sort((a,b) => a - b);
+    const mergedSet = new Set();
+    for (const i of selected) for (const node of domains[i].cells) mergedSet.add(node);
+    const merged = { cells: [...mergedSet], sum: domainValue([...mergedSet]), id: 0, path: [], full: false };
+    domains = domains.filter((_, i) => !selectedDomains.has(i));
+    domains.push(merged);
+    domains = domains.map((d,i) => ({ ...d, id: i }));
+    selectedDomains.clear();
+    await rerunExistingPaths();
+    message.textContent = `Merged ${selected.length} subdomains, then reran paths.`;
+  }
+
+  function isConnectedNodeSet(nodes) {
+    if (nodes.length <= 1) return true;
+    const allowed = new Set(nodes);
+    const seen = new Set([nodes[0]]);
+    const q = [nodes[0]];
+    for (let head = 0; head < q.length; head++) {
+      const u = q[head];
+      for (const v of graph.adj[u]) {
+        if (allowed.has(v) && !seen.has(v)) {
+          seen.add(v);
+          q.push(v);
+        }
+      }
+    }
+    return seen.size === nodes.length;
+  }
+
+  function findTwoWayBalancedSplit(cells) {
+    if (cells.length < 2) return null;
+    const cellSet = new Set(cells);
+    const starts = cells.slice().sort((a,b) => graph.adj[a].length - graph.adj[b].length);
+    for (const start of starts) {
+      const order = [];
+      const seen = new Set([start]);
+      const q = [start];
+      for (let head = 0; head < q.length; head++) {
+        const u = q[head];
+        order.push(u);
+        const ns = graph.adj[u]
+          .filter(v => cellSet.has(v) && !seen.has(v))
+          .sort((a,b) => graph.adj[a].length - graph.adj[b].length);
+        for (const v of ns) {
+          seen.add(v);
+          q.push(v);
+        }
+      }
+      const left = [];
+      const leftSet = new Set();
+      let leftSum = 0;
+      for (let i = 0; i < order.length - 1; i++) {
+        const u = order[i];
+        left.push(u);
+        leftSet.add(u);
+        leftSum += graph.nodes[u].color;
+        const right = cells.filter(v => !leftSet.has(v));
+        if (Math.abs(leftSum) <= 1 && Math.abs(domainValue(right)) <= 1 && isConnectedNodeSet(left) && isConnectedNodeSet(right)) {
+          return [left.slice(), right];
+        }
+      }
+    }
+    return null;
+  }
+
+  async function splitSelectedDomain() {
+    if (selectedDomains.size !== 1) {
+      message.textContent = "Select exactly one subdomain to split.";
+      return;
+    }
+    buildWorkingGraph();
+    const idx = [...selectedDomains][0];
+    const d = domains[idx];
+    const sum = domainValue(d.cells);
+    if (Math.abs(sum) <= 1) {
+      const split = findTwoWayBalancedSplit(d.cells);
+      if (!split) {
+        message.textContent = "Could not find a two-way connected split that keeps both parts balanced.";
+        return;
+      }
+      domains.splice(idx, 1, ...split.map(cells => ({ cells, sum: domainValue(cells), path: [], full: false })));
+      domains = domains.map((dom,i) => ({ ...dom, id: i }));
+      selectedDomains.clear();
+      await rerunExistingPaths();
+      message.textContent = `Split D${idx+1} into 2 balanced subdomains, then reran paths.`;
+      return;
+    }
+    const parts = treeCut({ cells: d.cells, imbalance: sum });
+    if (parts.length <= 1) {
+      message.textContent = "Could not find a connected balanced split for this subdomain.";
+      return;
+    }
+    const replacements = parts.map(cells => ({ cells, sum: domainValue(cells), path: [], full: false }));
+    domains.splice(idx, 1, ...replacements);
+    domains = domains.map((dom,i) => ({ ...dom, id: i }));
+    selectedDomains.clear();
+    await rerunExistingPaths();
+    message.textContent = `Split D${idx+1} into ${parts.length} subdomains, then reran paths.`;
+  }
+
+  function beginDrag(evt) {
+    canvas.setPointerCapture(evt.pointerId);
+    dragState = {
+      x: evt.clientX,
+      y: evt.clientY,
+      yaw: Number(yawInp.value),
+      pitch: Number(pitchInp.value),
+      moved: false
+    };
+  }
+
+  function moveDrag(evt) {
+    if (!dragState) return;
+    const dx = evt.clientX - dragState.x;
+    const dy = evt.clientY - dragState.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) dragState.moved = true;
+    let yaw = dragState.yaw + dx * 0.45;
+    let pitch = dragState.pitch - dy * 0.32;
+    while (yaw > 180) yaw -= 360;
+    while (yaw < -180) yaw += 360;
+    pitch = Math.max(-75, Math.min(75, pitch));
+    yawInp.value = yaw;
+    pitchInp.value = pitch;
+    draw();
+  }
+
+  function endDrag(evt) {
+    if (!dragState) return;
+    const wasClick = !dragState.moved;
+    dragState = null;
+    if (wasClick) pickVertex(evt);
+  }
+
+  function wheelZoom(evt) {
+    evt.preventDefault();
+    const current = Number(zoomInp.value);
+    const next = Math.max(Number(zoomInp.min), Math.min(Number(zoomInp.max), current + (evt.deltaY < 0 ? 12 : -12)));
+    zoomInp.value = next;
+    draw();
+  }
+
+  function resetView() {
+    yawInp.value = surfaceSel.value === "torus" ? -35 : -28;
+    pitchInp.value = surfaceSel.value === "torus" ? -26 : -18;
+    zoomInp.value = surfaceSel.value === "torus" ? 150 : 185;
+    draw();
+  }
+
+  function randomHoles() {
+    removed.clear();
+    const count = Math.floor(mesh.vertices.length * 0.08);
+    for (let i = 0; i < count; i++) removed.add(Math.floor(Math.random() * mesh.vertices.length));
+    domains = [];
+    selectedDomains.clear();
+    const comps = activeComponents();
+    const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+    setStats(comps, lower, 0);
+    draw();
+  }
+
+  surfaceSel.addEventListener("change", () => { updateControls(); buildMesh(); });
+  graphModeSel.addEventListener("change", () => {
+    domains = [];
+    selectedDomains.clear();
+    const comps = activeComponents();
+    const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+    setStats(comps, lower, 0);
+    legend.innerHTML = "";
+    draw();
+    message.textContent = `Switched to ${graphModeSel.value === "face" ? "face-dual" : "vertex"} mode. Solve again.`;
+  });
+  buildBtn.addEventListener("click", buildMesh);
+  clearBtn.addEventListener("click", () => {
+    removed.clear();
+    domains = [];
+    selectedDomains.clear();
+    const comps = activeComponents();
+    const lower = comps.reduce((s,c) => s + Math.max(1, Math.abs(c.imbalance)), 0);
+    draw();
+    setStats(comps, lower, 0);
+  });
+  randomBtn.addEventListener("click", randomHoles);
+  solveBtn.addEventListener("click", solveAll);
+  mergeBtn.addEventListener("click", mergeSelectedDomains);
+  splitBtn.addEventListener("click", splitSelectedDomain);
+  rerunBtn.addEventListener("click", rerunExistingPaths);
+  yawInp.addEventListener("input", draw);
+  pitchInp.addEventListener("input", draw);
+  zoomInp.addEventListener("input", draw);
+  resetViewBtn.addEventListener("click", resetView);
+  canvas.addEventListener("pointerdown", beginDrag);
+  canvas.addEventListener("pointermove", moveDrag);
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", () => { dragState = null; });
+  canvas.addEventListener("wheel", wheelZoom, { passive: false });
+  window.addEventListener("resize", draw);
+  updateControls();
+  buildMesh();
+})();
+</script>
+</body>
+</html>
